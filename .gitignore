@@ -1,7 +1,37 @@
+# Python
 venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# 环境与配置
 .env
+.env.local
+*.local
+
+# 数据库
 data/
 *.db
+*.sqlite
+*.sqlite3
+
+# 构建输出
 public/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# 系统
+.DS_Store
+Thumbs.db
