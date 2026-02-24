@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>计件系统</title>
+  <link rel="stylesheet" href="/static/element-plus.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <div id="app">
+    <template v-if="token">
+      <nav class="nav">
+        <span class="nav-title">计件系统</span>
+        <router-link to="/" class="nav-link" exact-active-class="router-link-active">首页</router-link>
+        <router-link to="/entry" class="nav-link" v-if="isAdmin">计件录入</router-link>
+        <router-link to="/query" class="nav-link">数据查询</router-link>
+        <router-link to="/settings" class="nav-link" v-if="isAdmin">设置</router-link>
+        <span class="nav-right">{{ user?.username }} · <a href="#" @click.prevent="logout" class="nav-logout">退出</a></span>
+      </nav>
+      <main class="main"><router-view /></main>
+    </template>
+    <div v-else class="login-box">
+      <div class="login-card">
+        <div class="login-title">计件系统</div>
+        <el-form :model="loginForm" label-width="0" size="default">
+          <el-form-item><el-input v-model="loginForm.username" placeholder="用户名" /></el-form-item>
+          <el-form-item><el-input v-model="loginForm.password" type="password" placeholder="密码" show-password @keyup.enter="doLogin" /></el-form-item>
+          <el-form-item><el-button type="primary" style="width:100%" @click="doLogin" :loading="loginForm.loading">登录</el-button></el-form-item>
+        </el-form>
+      </div>
+    </div>
+  </div>
+  <script src="/config.js"></script>
+  <script src="/static/dayjs.min.js"></script>
+  <script src="/static/dayjs-zh-cn.js"></script>
+  <script>dayjs.locale('zh-cn');</script>
+  <script src="/static/vue.min.js"></script>
+  <script src="/static/vue-router.min.js"></script>
+  <script src="/static/element-plus.min.js"></script>
+  <script src="/static/locale/zh-cn.js"></script>
+  <script src="/static/axios.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

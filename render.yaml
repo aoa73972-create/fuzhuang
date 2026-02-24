@@ -1,0 +1,14 @@
+# Render 后端部署配置
+# 部署后复制服务 URL，填入 Netlify 环境变量 API_URL
+services:
+  - type: web
+    name: piecework-api
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn -w 1 -b 0.0.0.0:$PORT app:app
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: JWT_SECRET_KEY
+        generateValue: true

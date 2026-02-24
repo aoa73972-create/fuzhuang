@@ -1,0 +1,7 @@
+{
+  "name": "piecework-system",
+  "version": "1.0.0",
+  "scripts": {
+    "build:netlify": "node scripts/build-netlify.js"
+  }
+}
