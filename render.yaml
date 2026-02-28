@@ -1,5 +1,9 @@
-# Render 后端部署配置
-# 部署后复制服务 URL，填入 Netlify 环境变量 API_URL
+# Render 后端部署配置（一键部署：Web 服务 + 免费 PostgreSQL）
+# 部署后复制 piecework-api 的 URL，填入 Netlify 环境变量 API_URL
+databases:
+  - name: piecework-db
+    plan: free
+
 services:
   - type: web
     name: piecework-api
@@ -12,3 +16,7 @@ services:
         generateValue: true
       - key: JWT_SECRET_KEY
         generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: piecework-db
+          property: connectionString

@@ -12,7 +12,7 @@
     <template v-if="token">
       <nav class="nav">
         <span class="nav-title">计件系统</span>
-        <router-link to="/" class="nav-link" exact-active-class="router-link-active">首页</router-link>
+        <router-link to="/home" class="nav-link" exact-active-class="router-link-active">首页</router-link>
         <router-link to="/entry" class="nav-link" v-if="isAdmin">计件录入</router-link>
         <router-link to="/query" class="nav-link">数据查询</router-link>
         <router-link to="/settings" class="nav-link" v-if="isAdmin">设置</router-link>

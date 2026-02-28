@@ -5,7 +5,7 @@ from datetime import datetime
 from flask import Blueprint, request, send_file, jsonify
 from flask_jwt_extended import jwt_required
 
-from models import get_db, dict_from_row
+from models import get_db, dict_from_row, date_month_sql
 from api.auth import require_admin, get_current_employee_id
 
 reports_bp = Blueprint('reports', __name__)
@@ -42,13 +42,13 @@ def export_salary_excel():
         c.alignment = Alignment(horizontal='center', vertical='center')
     with get_db() as conn:
         c = conn.cursor()
-        sql = """
+        sql = f"""
             SELECT pr.record_date, e.name as employee_name, e.employee_no, pr.style_code, pr.size, pr.process_name,
                    pr.quantity, pr.unit_price, pr.amount, wo.order_no
             FROM piece_records pr
             JOIN employees e ON pr.employee_id = e.id
             LEFT JOIN work_orders wo ON pr.work_order_id = wo.id
-            WHERE strftime('%Y-%m', pr.record_date) = ?
+            WHERE {date_month_sql('pr.record_date')} = ?
         """
         params = [month]
         if employee_id:

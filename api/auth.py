@@ -4,7 +4,7 @@ from flask import Blueprint, request, jsonify
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, get_jwt
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from models import get_db, dict_from_row, init_db
+from models import get_db, dict_from_row, init_db, is_unique_violation
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -17,6 +17,13 @@ def _ensure_admin_user():
             c.execute(
                 "INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'admin')",
                 ('admin', generate_password_hash('admin123'))
+            )
+        # 确保部署用账号 13396010619 存在
+        c.execute("SELECT id FROM users WHERE username = '13396010619'")
+        if c.fetchone() is None:
+            c.execute(
+                "INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'admin')",
+                ('13396010619', generate_password_hash('919298'))
             )
 
 def _get_user_by_username(username):
@@ -122,6 +129,6 @@ def create_user():
             )
             return jsonify({'ok': True, 'id': c.lastrowid})
         except Exception as e:
-            if 'UNIQUE' in str(e):
+            if is_unique_violation(e):
                 return jsonify({'ok': False, 'msg': '用户名已存在'}), 400
             raise

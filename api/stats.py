@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
-from models import get_db, dict_from_row
+from models import get_db, dict_from_row, date_month_sql
 from api.auth import get_current_employee_id
 
 stats_bp = Blueprint('stats', __name__)
@@ -31,7 +31,7 @@ def process_share():
             sql += " AND pr.employee_id = ?"
             params.append(employee_id)
         if month:
-            sql += " AND strftime('%Y-%m', pr.record_date) = ?"
+            sql += f" AND {date_month_sql('pr.record_date')} = ?"
             params.append(month)
         sql += " GROUP BY COALESCE(pr.process_name, pr.style_code) ORDER BY value DESC"
         c.execute(sql, params)
@@ -51,11 +51,12 @@ def employee_ranking():
         # 普通员工只看自己
         with get_db() as conn:
             c = conn.cursor()
-            c.execute("""
+            dm = date_month_sql('pr.record_date')
+            c.execute(f"""
                 SELECT e.id, e.name, e.employee_no, SUM(pr.quantity) as total_qty, SUM(pr.amount) as total_amount
                 FROM employees e
                 JOIN piece_records pr ON pr.employee_id = e.id
-                WHERE e.id = ? AND (? = '' OR strftime('%Y-%m', pr.record_date) = ?)
+                WHERE e.id = ? AND (? = '' OR {dm} = ?)
                 GROUP BY e.id
             """, (emp_id, month, month))
             row = c.fetchone()
@@ -72,7 +73,7 @@ def employee_ranking():
         """
         params = []
         if month:
-            sql += " AND strftime('%Y-%m', pr.record_date) = ?"
+            sql += f" AND {date_month_sql('pr.record_date')} = ?"
             params.append(month)
         sql += " GROUP BY e.id ORDER BY total_amount DESC LIMIT ?"
         params.append(limit)

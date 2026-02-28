@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
-from models import get_db, dict_from_row
+from models import get_db, dict_from_row, date_month_sql
 from api.auth import require_admin, get_current_employee_id
 
 piece_records_bp = Blueprint('piece_records', __name__)
@@ -62,7 +62,7 @@ def list_records():
             sql += " AND pr.employee_id = ?"
             params.append(employee_id)
         if month:
-            sql += " AND strftime('%Y-%m', pr.record_date) = ?"
+            sql += f" AND {date_month_sql('pr.record_date')} = ?"
             params.append(month)
         if size:
             sql += " AND pr.size = ?"

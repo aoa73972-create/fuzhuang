@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
-from models import get_db, dict_from_row
+from models import get_db, dict_from_row, date_month_sql
 from api.auth import require_admin, get_current_employee_id
 
 salary_bp = Blueprint('salary', __name__)
@@ -33,15 +33,16 @@ def salary_summary():
             sql += " AND pr.employee_id = ?"
             params.append(employee_id)
         if month:
-            sql += " AND strftime('%Y-%m', pr.record_date) = ?"
+            sql += f" AND {date_month_sql('pr.record_date')} = ?"
             params.append(month)
         sql += " GROUP BY pr.record_date, pr.employee_id ORDER BY pr.record_date DESC, pr.employee_id"
         c.execute(sql, params)
         daily = [dict_from_row(r) for r in c.fetchall()]
         # 月度汇总
-        sql2 = """
+        dm = date_month_sql('pr.record_date')
+        sql2 = f"""
             SELECT pr.employee_id, e.name as employee_name, e.employee_no,
-                   strftime('%Y-%m', pr.record_date) as month,
+                   {dm} as month,
                    SUM(pr.quantity) as total_qty, SUM(pr.amount) as total_amount
             FROM piece_records pr
             JOIN employees e ON pr.employee_id = e.id
@@ -52,9 +53,9 @@ def salary_summary():
             sql2 += " AND pr.employee_id = ?"
             params2.append(employee_id)
         if month:
-            sql2 += " AND strftime('%Y-%m', pr.record_date) = ?"
+            sql2 += f" AND {dm} = ?"
             params2.append(month)
-        sql2 += " GROUP BY pr.employee_id, strftime('%Y-%m', pr.record_date) ORDER BY month DESC, pr.employee_id"
+        sql2 += f" GROUP BY pr.employee_id, {dm} ORDER BY month DESC, pr.employee_id"
         c.execute(sql2, params2)
         monthly = [dict_from_row(r) for r in c.fetchall()]
     return jsonify({'ok': True, 'daily': daily, 'monthly': monthly})
@@ -74,13 +75,13 @@ def salary_slip():
         employee_id = emp_id
     with get_db() as conn:
         c = conn.cursor()
-        sql = """
+        sql = f"""
             SELECT pr.*, e.name as employee_name, e.employee_no,
                    wo.order_no, wo.style_name
             FROM piece_records pr
             JOIN employees e ON pr.employee_id = e.id
             LEFT JOIN work_orders wo ON pr.work_order_id = wo.id
-            WHERE strftime('%Y-%m', pr.record_date) = ?
+            WHERE {date_month_sql('pr.record_date')} = ?
         """
         params = [month]
         if employee_id:

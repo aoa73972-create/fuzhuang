@@ -3,7 +3,7 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required
 
-from models import get_db, dict_from_row
+from models import get_db, dict_from_row, is_unique_violation
 from api.auth import require_admin, get_current_employee_id
 
 employees_bp = Blueprint('employees', __name__)
@@ -67,7 +67,7 @@ def create_employee():
             )
             rid = c.lastrowid
         except Exception as e:
-            if 'UNIQUE' in str(e):
+            if is_unique_violation(e):
                 return jsonify({'ok': False, 'msg': '工号已存在'}), 400
             raise
     return jsonify({'ok': True, 'id': rid})

@@ -62,48 +62,72 @@ const Home = {
   }
 };
 
-// 计件录入 - 员工固定、偶尔新增，主流程：款式 → 数量
+// 计件录入 - 按当前字体规格重构
 const Entry = {
   template: `
-    <div class="card">
-      <div class="step-bar">
+    <div class="page-entry">
+      <div class="entry-step-bar">
         <span :class="{active:step===0}">1. 款式</span>
         <span :class="{active:step===1}">2. 数量</span>
       </div>
-      <!-- 步骤1：款式 -->
-      <div v-show="step===0">
-        <el-form :model="f" label-width="80" inline size="default">
-          <el-form-item label="款式"><el-select v-model="f.style_code" filterable allow-create placeholder="款式" style="width:160px" @change="onStyle">
-            <el-option v-for="r in pieceRates" :key="r.id" :label="r.style_code + (r.size?' '+r.size:'') + ' ¥'+r.unit_price" :value="r.style_code" />
-          </el-select></el-form-item>
-          <el-form-item label="尺码"><el-select v-model="f.size" clearable placeholder="尺码" style="width:120px" @change="onStyle">
-            <el-option v-for="s in sizes" :key="s" :label="s" :value="s" />
-          </el-select></el-form-item>
-          <el-form-item label="单价"><el-input-number v-model="f.unit_price" :min="0" :precision="2" style="width:120px" controls-position="right" /></el-form-item>
-          <el-form-item label="日期"><el-date-picker v-model="f.record_date" type="date" value-format="YYYY-MM-DD" format="YYYY年M月D日" style="width:180px" /></el-form-item>
-        </el-form>
-        <el-button type="primary" size="large" @click="step=1">下一步</el-button>
+      <div v-show="step===0" class="entry-step-content">
+        <section class="entry-section">
+          <div class="entry-row">
+            <div class="entry-block">
+              <label class="entry-label">款式</label>
+              <el-input v-model="f.style_code" placeholder="输入款式" class="entry-input-text" @input="onStyle" />
+            </div>
+            <div class="entry-block entry-block-size">
+              <label class="entry-label">尺码</label>
+              <div class="entry-size-chips">
+                <button v-for="s in sizes" :key="s" type="button" class="entry-size-chip" :class="{ active: f.size === s }" @click="toggleSize(s)">{{ s }}</button>
+                <button v-if="f.size" type="button" class="entry-size-chip entry-size-clear" @click="clearSize">清空</button>
+              </div>
+            </div>
+          </div>
+          <div class="entry-row">
+            <div class="entry-block">
+              <label class="entry-label">单价（元）</label>
+              <el-input :model-value="f.unit_price" @update:model-value="onUnitPriceInput" type="number" min="0" step="0.01" placeholder="0.00" class="entry-input-text" />
+            </div>
+            <div class="entry-block entry-block-date">
+              <label class="entry-label">日期</label>
+              <el-date-picker v-model="f.record_date" type="date" value-format="YYYY-MM-DD" format="YYYY年M月D日" class="entry-date" style="width:100%" />
+            </div>
+          </div>
+          <div class="entry-footer">
+            <el-button type="primary" size="large" @click="step=1">下一步</el-button>
+          </div>
+        </section>
       </div>
-      <!-- 步骤2：数量（员工名单固定，偶尔新增） -->
-      <div v-show="step===1">
-        <p class="entry-summary">{{ f.style_code }} {{ f.size || '' }} · ¥{{ f.unit_price }} · {{ formatDateZh(f.record_date) }}</p>
-        <div class="entry-toolbar">
-          <span class="entry-toolbar-label">名单 {{ employees.length }} 人</span>
-          <el-input v-model="newName" placeholder="新增员工姓名" style="width:140px" @keyup.enter="addOne" />
-          <el-button @click="addOne">添加</el-button>
-          <el-button link type="primary" @click="$router.push('/settings')">批量维护名单</el-button>
-        </div>
-        <el-table :data="qtyRows" max-height="360">
-          <el-table-column prop="name" label="姓名" width="120" />
-          <el-table-column label="数量" width="140">
-            <template #default="{row}"><el-input-number v-model="row.quantity" :min="0" style="width:110px" controls-position="right" /></template>
-          </el-table-column>
-        </el-table>
-        <p v-if="!employees.length" class="entry-empty">暂无员工，请先在设置中添加</p>
-        <div class="entry-actions">
-          <el-button size="large" @click="step=0">上一步</el-button>
-          <el-button type="primary" size="large" @click="submit" :disabled="!employees.length">提交</el-button>
-        </div>
+      <div v-show="step===1" class="entry-step-content">
+        <section class="entry-section entry-summary-section">
+          <div class="entry-summary">
+            <span class="entry-summary-title">{{ f.style_code }} {{ f.size || '' }}</span>
+            <span class="entry-summary-info">¥{{ f.unit_price }} · {{ formatDateZh(f.record_date) }}</span>
+          </div>
+          <div class="entry-toolbar">
+            <span class="entry-toolbar-text">名单 {{ employees.length }} 人</span>
+            <div class="entry-toolbar-btns">
+              <el-input v-model="newName" placeholder="新增员工姓名" class="entry-input-name" @keyup.enter="addOne" />
+              <el-button @click="addOne">添加</el-button>
+              <el-button link type="primary" @click="$router.push('/settings')">批量维护</el-button>
+            </div>
+          </div>
+          <div class="entry-table-card">
+            <el-table :data="qtyRows" class="entry-table" max-height="1750">
+              <el-table-column prop="name" label="姓名" min-width="180" />
+              <el-table-column label="数量" min-width="220">
+                <template #default="{row}"><el-input :model-value="row.quantity" @update:model-value="v => onQtyInput(row, v)" type="number" min="0" placeholder="0" class="entry-qty-input" /></template>
+              </el-table-column>
+            </el-table>
+          </div>
+          <p v-if="!employees.length" class="entry-empty">暂无员工，请先在设置中添加</p>
+          <div class="entry-actions">
+            <el-button size="large" @click="step=0">上一步</el-button>
+            <el-button type="primary" size="large" @click="submit" :disabled="!employees.length">提交</el-button>
+          </div>
+        </section>
       </div>
     </div>
   `,
@@ -137,6 +161,22 @@ const Entry = {
     onStyle() {
       const r = this.pieceRates.find(x => x.style_code === this.f.style_code && (x.size||'') === (this.f.size||''));
       if (r) this.f.unit_price = r.unit_price;
+    },
+    toggleSize(s) {
+      this.f.size = this.f.size === s ? '' : s;
+      this.onStyle();
+    },
+    clearSize() {
+      this.f.size = '';
+      this.onStyle();
+    },
+    onUnitPriceInput(v) {
+      const n = parseFloat(v);
+      this.f.unit_price = (v === '' || v === null || isNaN(n)) ? 0 : Math.max(0, Math.round(n * 100) / 100);
+    },
+    onQtyInput(row, v) {
+      const n = parseInt(v, 10);
+      row.quantity = (v === '' || v === null || isNaN(n)) ? 0 : Math.max(0, n);
     },
     addOne() {
       if (!this.newName.trim()) { ElMessage.warning('请输入姓名'); return; }
@@ -173,7 +213,7 @@ const Entry = {
 // 数据查询 - 合并计件/薪资/报表/统计
 const Query = {
   template: `
-    <div class="card">
+    <div class="card page-query">
       <div class="card-title">数据查询</div>
       <el-tabs v-model="tab">
         <el-tab-pane label="计件明细" name="list">
@@ -193,7 +233,7 @@ const Query = {
             <el-form-item><el-button type="primary" @click="loadList">查询</el-button></el-form-item>
             <el-form-item v-if="isAdmin"><el-button type="danger" @click="clearAll">清空</el-button></el-form-item>
           </el-form>
-          <div v-if="(size || empId) && tab==='list'" style="margin-bottom:12px;font-size:14px;color:#ff9500">提示：已筛选 尺码{{ size ? '='+size : '' }}{{ empId ? ' 员工' : '' }}，可能只显示部分数据，清空筛选可查看全部</div>
+          <div v-if="(size || empId) && tab==='list'" class="query-filter-tip">提示：已筛选 尺码{{ size ? '='+size : '' }}{{ empId ? ' 员工' : '' }}，可能只显示部分数据，清空筛选可查看全部</div>
           <div v-if="dateMode==='day' && date" class="query-day-summary">
             <strong>{{ formatDateZh(date) }}</strong>：共 <strong>{{ daySummary.count }}</strong> 条，金额合计 <strong>¥{{ daySummary.amount }}</strong>
           </div>
@@ -230,32 +270,42 @@ const Query = {
           </el-dialog>
         </el-tab-pane>
         <el-tab-pane label="薪资汇总" name="salary">
-          <div class="salary-header">
-            <el-form inline>
-              <el-form-item label="月份"><el-date-picker v-model="month" type="month" value-format="YYYY-MM" format="YYYY年M月" @change="loadSalary" /></el-form-item>
-              <el-form-item v-if="isAdmin" label="员工"><el-select v-model="empId" placeholder="全部员工" clearable style="width:140px" @change="loadSalary"><el-option v-for="e in employees" :key="e.id" :label="e.name" :value="e.id" /></el-select></el-form-item>
-              <el-form-item><el-button type="primary" @click="loadSalary">查询</el-button></el-form-item>
-            </el-form>
-            <div v-if="monthly.length" class="salary-summary-bar">
+          <section class="salary-section">
+            <div class="salary-toolbar">
+              <div class="salary-form-row">
+                <div class="salary-form-item">
+                  <label class="salary-label">月份</label>
+                  <el-date-picker v-model="month" type="month" value-format="YYYY-MM" format="YYYY年M月" class="salary-date-picker" @change="loadSalary" />
+                </div>
+                <div v-if="isAdmin" class="salary-form-item">
+                  <label class="salary-label">员工</label>
+                  <el-select v-model="empId" placeholder="全部员工" clearable class="salary-select" @change="loadSalary"><el-option v-for="e in employees" :key="e.id" :label="e.name" :value="e.id" /></el-select>
+                </div>
+                <div class="salary-form-item salary-form-item-btn">
+                  <el-button type="primary" size="large" @click="loadSalary">查询</el-button>
+                </div>
+              </div>
+            </div>
+            <div v-if="monthly.length" class="salary-summary-card">
               <span class="salary-summary-label">{{ formatMonthZh(month) }} 汇总</span>
               <span class="salary-summary-total">合计 <strong>¥{{ salaryTotal }}</strong></span>
             </div>
-          </div>
-          <div class="salary-table-wrap">
-            <el-table :data="monthly" class="salary-table" stripe>
-              <el-table-column prop="employee_name" label="员工" min-width="120" />
-              <el-table-column label="月份" width="130" align="center"><template #default="{row}">{{ formatMonthZh(row.month) }}</template></el-table-column>
-              <el-table-column prop="total_qty" label="数量" width="100" align="right" />
-              <el-table-column prop="total_amount" label="金额（元）" width="120" align="right">
-                <template #default="{row}">¥{{ parseFloat(row.total_amount||0).toFixed(2) }}</template>
-              </el-table-column>
-            </el-table>
-            <div v-if="monthly.length && !empId" class="salary-total-row">
-              <span class="salary-total-label">合计</span>
-              <span class="salary-total-qty">{{ salaryTotalQty }}</span>
-              <span class="salary-total-amount">¥{{ salaryTotal }}</span>
+            <div class="salary-table-card">
+              <el-table :data="monthly" class="salary-table salary-table-summary" stripe>
+                <el-table-column label="月份" min-width="160" align="center"><template #default="{row}">{{ formatMonthZh(row.month) }}</template></el-table-column>
+                <el-table-column prop="employee_name" label="员工" min-width="120" />
+                <el-table-column prop="total_qty" label="数量" min-width="100" align="right" />
+                <el-table-column prop="total_amount" label="金额（元）" min-width="160" align="right">
+                  <template #default="{row}">¥{{ parseFloat(row.total_amount||0).toFixed(2) }}</template>
+                </el-table-column>
+              </el-table>
+              <div v-if="monthly.length && !empId" class="salary-total-row">
+                <span class="salary-total-label">合计</span>
+                <span class="salary-total-qty">{{ salaryTotalQty }}</span>
+                <span class="salary-total-amount">¥{{ salaryTotal }}</span>
+              </div>
             </div>
-          </div>
+          </section>
         </el-tab-pane>
         <el-tab-pane label="导出报表" name="report">
           <el-form inline>
@@ -265,14 +315,39 @@ const Query = {
           </el-form>
         </el-tab-pane>
         <el-tab-pane label="数据统计" name="stats">
-          <el-form inline>
-            <el-form-item><el-date-picker v-model="month" type="month" value-format="YYYY-MM" format="YYYY年M月" /></el-form-item>
-            <el-form-item><el-button type="primary" @click="loadStats">查询</el-button></el-form-item>
-          </el-form>
-          <el-row :gutter="16">
-            <el-col :span="12"><div class="card-title">工序占比</div><el-table :data="processShare"><el-table-column prop="label" /><el-table-column prop="qty" label="数量" width="90" /><el-table-column prop="value" label="金额" width="100" /><el-table-column prop="percent" width="80"><template #default="{row}">{{ row.percent }}%</template></el-table-column></el-table></el-col>
-            <el-col :span="12"><div class="card-title">产能排行</div><el-table :data="ranking"><el-table-column prop="rank" width="60" /><el-table-column prop="name" /><el-table-column prop="total_qty" label="数量" width="90" /><el-table-column prop="total_amount" label="金额" width="100" /></el-table></el-col>
-          </el-row>
+          <section class="stats-section">
+            <div class="stats-toolbar">
+              <div class="stats-form-row">
+                <div class="stats-form-item">
+                  <label class="stats-label">月份</label>
+                  <el-date-picker v-model="month" type="month" value-format="YYYY-MM" format="YYYY年M月" class="stats-date-picker" @change="loadStats" />
+                </div>
+                <div class="stats-form-item">
+                  <el-button type="primary" size="large" @click="loadStats">查询</el-button>
+                </div>
+              </div>
+            </div>
+            <div class="stats-grid">
+              <div class="stats-card">
+                <div class="stats-card-title">工序占比</div>
+                <el-table :data="processShare" class="stats-table">
+                  <el-table-column prop="label" label="工序" min-width="140" />
+                  <el-table-column prop="qty" label="数量" min-width="100" align="right" />
+                  <el-table-column prop="value" label="金额" min-width="120" align="right" />
+                  <el-table-column prop="percent" label="占比" min-width="90" align="right"><template #default="{row}">{{ row.percent }}%</template></el-table-column>
+                </el-table>
+              </div>
+              <div class="stats-card">
+                <div class="stats-card-title">产能排行</div>
+                <el-table :data="ranking" class="stats-table">
+                  <el-table-column prop="rank" label="排名" min-width="80" align="center" />
+                  <el-table-column prop="name" label="员工" min-width="140" />
+                  <el-table-column prop="total_qty" label="数量" min-width="100" align="right" />
+                  <el-table-column prop="total_amount" label="金额" min-width="120" align="right" />
+                </el-table>
+              </div>
+            </div>
+          </section>
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -321,7 +396,7 @@ const Query = {
   },
   watch: {
     dateMode() { this.loadList(); },
-    tab(n) { if (n === 'salary') this.loadSalary(); }
+    tab(n) { if (n === 'salary') this.loadSalary(); if (n === 'stats') this.loadStats(); }
   },
   mounted() {
     this.loadList();
@@ -451,7 +526,8 @@ const Settings = {
 };
 
 const routes = [
-  { path: '/', component: Home },
+  { path: '/', redirect: '/entry' },
+  { path: '/home', component: Home },
   { path: '/entry', component: Entry },
   { path: '/query', component: Query },
   { path: '/settings', component: Settings }
@@ -477,7 +553,7 @@ const app = createApp({
           localStorage.setItem('user', JSON.stringify(r.data.user));
           this.token = r.data.token;
           this.user = r.data.user;
-          router.push('/');
+          router.push('/entry');
         } else ElMessage.error(r.data?.msg || '登录失败');
       } catch (e) { ElMessage.error(e.response?.data?.msg || '登录失败'); }
       finally { this.loginForm.loading = false; }
