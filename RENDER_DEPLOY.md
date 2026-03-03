@@ -2,42 +2,39 @@
 
 ## 前置条件
 
-1. 代码已推送到 **GitHub**
+1. 代码已推送到 **GitHub**（仓库：https://github.com/aoa73972-create/fuzhuang）
 2. 已有 [Render](https://render.com) 账号（可用 GitHub 登录）
 
 ---
 
 ## 部署步骤
 
-### 1. 推送代码到 GitHub
+### 1. 打开 Render 控制台
 
-```bash
-cd /Users/mima0000/时代新区计件系统
-git init
-git add .
-git commit -m "计件系统"
-git branch -M main
-git remote add origin https://github.com/你的用户名/仓库名.git
-git push -u origin main
-```
+在浏览器中打开：**https://dashboard.render.com**
 
-> 若已有 GitHub 仓库，直接 `git push` 即可。
+### 2. 创建 Blueprint
 
-### 2. 在 Render 一键部署
+1. 点击左上角 **New** 按钮
+2. 选择 **Blueprint**
+3. 若未连接 GitHub，按提示用 GitHub 账号授权 Render
+4. 在仓库列表中选择 **aoa73972-create/fuzhuang**（或搜索 `fuzhuang`）
+5. 点击 **Connect** 连接仓库
 
-1. 打开 https://dashboard.render.com
-2. 点击 **New** → **Blueprint**
-3. 连接 GitHub，选择你的仓库
-4. Render 会自动识别根目录的 `render.yaml`，创建：
+### 3. 应用配置
+
+1. Render 会自动读取仓库根目录的 `render.yaml`
+2. 预览将创建的服务：
    - **piecework-db**：免费 PostgreSQL 数据库
-   - **piecework-api**：Flask 应用（前后端一体）
-5. 点击 **Apply**，等待部署完成（约 3–5 分钟）
+   - **piecework-api**：Flask Web 服务
+3. 点击 **Apply** 开始部署
+4. 等待约 3–5 分钟，直到状态变为 **Live**
 
-### 3. 获取访问地址
+### 4. 获取访问地址
 
-1. 在 **piecework-api** 服务详情页，复制 **URL**
-2. 形如：`https://piecework-api-xxxx.onrender.com`
-3. 直接访问该 URL 即可使用系统
+1. 在 Dashboard 中点击 **piecework-api** 服务
+2. 在页面顶部复制 **URL**（如 `https://piecework-api-xxxx.onrender.com`）
+3. 在浏览器中访问该 URL 即可使用计件系统
 
 ---
 

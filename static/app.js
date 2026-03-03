@@ -1,22 +1,27 @@
 // 计件系统 - 操作简单 · 呈现简洁
 const API = (window.API_BASE || '') + '/api';
+const isLocal = window.API_BASE === 'local';
 const axios = window.axios;
-if (!axios) throw new Error('axios 未加载，请检查网络连接');
+const api = window.apiRequest;
+if (!isLocal && !axios) throw new Error('axios 未加载，请检查网络连接');
+if (!api) throw new Error('api 适配器未加载');
 
-axios.defaults.baseURL = '';
-axios.interceptors.request.use(cfg => {
-  const t = localStorage.getItem('token');
-  if (t) cfg.headers.Authorization = 'Bearer ' + t;
-  return cfg;
-});
-axios.interceptors.response.use(r => r, err => {
-  if (err.response?.status === 401) {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.location.reload();
-  }
-  return Promise.reject(err);
-});
+if (axios) {
+  axios.defaults.baseURL = '';
+  axios.interceptors.request.use(cfg => {
+    const t = localStorage.getItem('token');
+    if (t) cfg.headers.Authorization = 'Bearer ' + t;
+    return cfg;
+  });
+  axios.interceptors.response.use(r => r, err => {
+    if (err.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.reload();
+    }
+    return Promise.reject(err);
+  });
+}
 
 const { createApp } = Vue;
 const { createRouter, createWebHashHistory } = VueRouter;
@@ -55,7 +60,7 @@ const Home = {
   computed: { isAdmin() { return this.$root.user?.role === 'admin'; } },
   mounted() {
     const m = new Date().toISOString().slice(0, 7);
-    axios.get(API + '/piece-records', { params: { month: m } }).then(r => {
+    api.get(API + '/piece-records', { params: { month: m } }).then(r => {
       const d = r.data?.data || [];
       this.stats = { total: d.reduce((s,x) => s + (x.amount||0), 0).toFixed(2), count: d.length, emp: new Set(d.map(x=>x.employee_id)).size };
     }).catch(() => { this.stats = { total: '0', count: '0', emp: '0' }; });
@@ -115,10 +120,10 @@ const Entry = {
             </div>
           </div>
           <div class="entry-table-card">
-            <el-table :data="qtyRows" class="entry-table" max-height="1750">
+            <el-table :data="qtyRows" class="entry-table" max-height="1750" row-key="employee_id">
               <el-table-column prop="name" label="姓名" min-width="180" />
               <el-table-column label="数量" min-width="220">
-                <template #default="{row}"><el-input :model-value="row.quantity" @update:model-value="v => onQtyInput(row, v)" type="number" min="0" placeholder="0" class="entry-qty-input" /></template>
+                <template #default="{row}"><el-input :model-value="String(row.quantity)" @update:model-value="v => onQtyInput(row, v)" type="text" inputmode="numeric" placeholder="0" class="entry-qty-input" maxlength="8" /></template>
               </el-table-column>
             </el-table>
           </div>
@@ -153,8 +158,8 @@ const Entry = {
     step(n) { if (n === 0) this.qtyRows = this.employees.map(e => ({ employee_id: e.id, name: e.name, quantity: 0 })); }
   },
   mounted() {
-    axios.get(API + '/employees').then(r => { this.employees = r.data?.data || []; });
-    axios.get(API + '/piece-rates').then(r => { this.pieceRates = r.data?.data || []; });
+    api.get(API + '/employees').then(r => { this.employees = r.data?.data || []; });
+    api.get(API + '/piece-rates').then(r => { this.pieceRates = r.data?.data || []; });
   },
   methods: {
     formatDateZh,
@@ -175,15 +180,16 @@ const Entry = {
       this.f.unit_price = (v === '' || v === null || isNaN(n)) ? 0 : Math.max(0, Math.round(n * 100) / 100);
     },
     onQtyInput(row, v) {
-      const n = parseInt(v, 10);
-      row.quantity = (v === '' || v === null || isNaN(n)) ? 0 : Math.max(0, n);
+      const s = String(v || '').replace(/\D/g, '');
+      const n = s === '' ? 0 : parseInt(s, 10);
+      row.quantity = Math.max(0, isNaN(n) ? 0 : n);
     },
     addOne() {
       if (!this.newName.trim()) { ElMessage.warning('请输入姓名'); return; }
-      axios.post(API + '/employees', { name: this.newName.trim() }).then(() => {
+      api.post(API + '/employees', { name: this.newName.trim() }).then(() => {
         ElMessage.success('已添加');
         this.newName = '';
-        axios.get(API + '/employees').then(r => { this.employees = r.data?.data || []; });
+        api.get(API + '/employees').then(r => { this.employees = r.data?.data || []; });
       });
     },
     submit() {
@@ -194,7 +200,7 @@ const Entry = {
       const items = rows.map(r => ({ employee_id: r.employee_id, quantity: r.quantity }));
       if (!items.length) { ElMessage.warning('请至少录入一条数量'); return; }
       const names = rows.map(r => r.name);
-      axios.post(API + '/piece-records/by-style', { ...this.f, size: this.f.size || null, items }).then(r => {
+      api.post(API + '/piece-records/by-style', { ...this.f, size: this.f.size || null, items }).then(r => {
         const d = r.data || {};
         const saved = d.saved || 0;
         const errs = d.errors || [];
@@ -400,7 +406,7 @@ const Query = {
   },
   mounted() {
     this.loadList();
-    if (this.$root.user?.role === 'admin') axios.get(API + '/employees').then(r => { this.employees = r.data?.data || []; });
+    if (this.$root.user?.role === 'admin') api.get(API + '/employees').then(r => { this.employees = r.data?.data || []; });
   },
   methods: {
     formatDateZh, formatMonthZh,
@@ -411,17 +417,17 @@ const Query = {
       else if (this.dateMode === 'range') { p.start_date = this.startDate; p.end_date = this.endDate; }
       if (this.size) p.size = this.size;
       if (this.empId) p.employee_id = this.empId;
-      axios.get(API + '/piece-records', { params: p }).then(r => { this.records = r.data?.data || []; });
+      api.get(API + '/piece-records', { params: p }).then(r => { this.records = r.data?.data || []; });
     },
     loadSalary() {
       const p = { month: this.month };
       if (this.empId) p.employee_id = this.empId;
-      axios.get(API + '/salary/summary', { params: p }).then(r => { this.monthly = r.data?.monthly || []; });
+      api.get(API + '/salary/summary', { params: p }).then(r => { this.monthly = r.data?.monthly || []; });
     },
     loadStats() {
       const p = { month: this.month };
       if (this.empId) p.employee_id = this.empId;
-      Promise.all([axios.get(API + '/stats/process-share', { params: p }), axios.get(API + '/stats/employee-ranking', { params: p })]).then(([a,b]) => {
+      Promise.all([api.get(API + '/stats/process-share', { params: p }), api.get(API + '/stats/employee-ranking', { params: p })]).then(([a,b]) => {
         this.processShare = a.data?.data || [];
         this.ranking = (b.data?.data || []).map((x,i) => ({ ...x, rank: i+1 }));
       });
@@ -429,7 +435,7 @@ const Query = {
     exportExcel() {
       const p = { month: this.month };
       if (this.empId) p.employee_id = this.empId;
-      axios.get(API + '/reports/salary-excel', { params: p, responseType: 'blob' }).then(r => {
+      api.get(API + '/reports/salary-excel', { params: p }).then(r => {
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob([r.data]));
         a.download = '薪资_' + this.month + '.xlsx';
@@ -439,7 +445,7 @@ const Query = {
     },
     clearAll() {
       ElementPlus.ElMessageBox.confirm('确定清空所有计件数据？', '确认', { type: 'warning' }).then(() => {
-        axios.post(API + '/piece-records/clear-all').then(r => { ElMessage.success('已清空'); this.loadList(); });
+        api.post(API + '/piece-records/clear-all').then(r => { ElMessage.success('已清空'); this.loadList(); });
       }).catch(() => {});
     },
     editRecord(row) {
@@ -452,7 +458,7 @@ const Query = {
       if (!f || f.quantity < 1) { ElMessage.warning('数量至少为1'); return; }
       if (f.unit_price < 0) { ElMessage.warning('单价不能为负'); return; }
       this.editD.loading = true;
-      axios.put(API + '/piece-records/' + f.id, { size: f.size || null, quantity: f.quantity, unit_price: f.unit_price }).then(() => {
+      api.put(API + '/piece-records/' + f.id, { size: f.size || null, quantity: f.quantity, unit_price: f.unit_price }).then(() => {
         ElMessage.success('已保存');
         this.editD.visible = false;
         this.loadList();
@@ -500,7 +506,7 @@ const Settings = {
   mounted() { this.load(); },
   methods: {
     load() {
-      Promise.all([axios.get(API + '/employees'), axios.get(API + '/piece-rates'), axios.get(API + '/work-orders')]).then(([a,b,c]) => {
+      Promise.all([api.get(API + '/employees'), api.get(API + '/piece-rates'), axios.get(API + '/work-orders')]).then(([a,b,c]) => {
         this.employees = a.data?.data || [];
         this.pieceRates = b.data?.data || [];
         this.workOrders = c.data?.data || [];
@@ -510,18 +516,18 @@ const Settings = {
     batchAdd() {
       if (!this.batchNames.trim()) { ElMessage.warning('请输入姓名'); return; }
       const names = this.batchNames.split(/[\n,，\s]+/).map(n=>n.trim()).filter(Boolean);
-      axios.post(API + '/employees/batch', { names: names.join('\n') }).then(r => { ElMessage.success('添加 ' + r.data.added + ' 人'); this.batchNames = ''; this.load(); });
+      api.post(API + '/employees/batch', { names: names.join('\n') }).then(r => { ElMessage.success('添加 ' + r.data.added + ' 人'); this.batchNames = ''; this.load(); });
     },
-    saveEmp() { (this.empD.id ? axios.put(API + '/employees/' + this.empD.id, this.empD.form) : axios.post(API + '/employees', this.empD.form)).then(() => { ElMessage.success('已保存'); this.empD.visible = false; this.load(); }); },
-    delEmp(row) { ElementPlus.ElMessageBox.confirm('确定删除？').then(() => axios.delete(API + '/employees/' + row.id).then(() => { ElMessage.success('已删除'); this.load(); })).catch(() => {}); },
+    saveEmp() { (this.empD.id ? api.put(API + '/employees/' + this.empD.id, this.empD.form) : api.post(API + '/employees', this.empD.form)).then(() => { ElMessage.success('已保存'); this.empD.visible = false; this.load(); }); },
+    delEmp(row) { ElementPlus.ElMessageBox.confirm('确定删除？').then(() => api.delete(API + '/employees/' + row.id).then(() => { ElMessage.success('已删除'); this.load(); })).catch(() => {}); },
     showRate(row) { this.rateD.id = row?.id; this.rateD.form = row ? { ...row } : { style_code: '', size: '', unit_price: 0 }; this.rateD.visible = true; },
-    saveRate() { (this.rateD.id ? axios.put(API + '/piece-rates/' + this.rateD.id, this.rateD.form) : axios.post(API + '/piece-rates', this.rateD.form)).then(() => { ElMessage.success('已保存'); this.rateD.visible = false; this.load(); }); },
-    delRate(row) { ElementPlus.ElMessageBox.confirm('确定删除？').then(() => axios.delete(API + '/piece-rates/' + row.id).then(() => { ElMessage.success('已删除'); this.load(); })).catch(() => {}); },
+    saveRate() { (this.rateD.id ? api.put(API + '/piece-rates/' + this.rateD.id, this.rateD.form) : api.post(API + '/piece-rates', this.rateD.form)).then(() => { ElMessage.success('已保存'); this.rateD.visible = false; this.load(); }); },
+    delRate(row) { ElementPlus.ElMessageBox.confirm('确定删除？').then(() => api.delete(API + '/piece-rates/' + row.id).then(() => { ElMessage.success('已删除'); this.load(); })).catch(() => {}); },
     showOrder(row) { this.orderD.id = row?.id; this.orderD.form = row ? { ...row } : { order_no: '', style_code: '', quantity: 0, delivery_date: '' }; this.orderD.visible = true; },
-    saveOrder() { (this.orderD.id ? axios.put(API + '/work-orders/' + this.orderD.id, this.orderD.form) : axios.post(API + '/work-orders', this.orderD.form)).then(() => { ElMessage.success('已保存'); this.orderD.visible = false; this.load(); }); },
-    delOrder(row) { ElementPlus.ElMessageBox.confirm('确定删除？').then(() => axios.delete(API + '/work-orders/' + row.id).then(() => { ElMessage.success('已删除'); this.load(); })).catch(() => {}); },
+    saveOrder() { (this.orderD.id ? api.put(API + '/work-orders/' + this.orderD.id, this.orderD.form) : api.post(API + '/work-orders', this.orderD.form)).then(() => { ElMessage.success('已保存'); this.orderD.visible = false; this.load(); }); },
+    delOrder(row) { ElementPlus.ElMessageBox.confirm('确定删除？').then(() => api.delete(API + '/work-orders/' + row.id).then(() => { ElMessage.success('已删除'); this.load(); })).catch(() => {}); },
     showUser(row) { this.userD.empId = row.id; this.userD.form = { username: row.employee_no || row.name, password: '' }; this.userD.visible = true; },
-    saveUser() { axios.post(API + '/auth/create-user', { employee_id: this.userD.empId, ...this.userD.form }).then(() => { ElMessage.success('已创建'); this.userD.visible = false; }); }
+    saveUser() { api.post(API + '/auth/create-user', { employee_id: this.userD.empId, ...this.userD.form }).then(() => { ElMessage.success('已创建'); this.userD.visible = false; }); }
   }
 };
 
@@ -542,12 +548,20 @@ const app = createApp({
     loginForm: { username: '', password: '', loading: false }
   }),
   computed: { isAdmin() { return this.user?.role === 'admin'; } },
+  mounted() {
+    if (isLocal && !this.token) {
+      this.token = 'local';
+      this.user = { username: '本地', role: 'admin' };
+      localStorage.setItem('token', 'local');
+      localStorage.setItem('user', JSON.stringify(this.user));
+    }
+  },
   methods: {
     async doLogin() {
       if (!this.loginForm.username || !this.loginForm.password) { ElMessage.warning('请输入用户名和密码'); return; }
       this.loginForm.loading = true;
       try {
-        const r = await axios.post(API + '/auth/login', this.loginForm);
+        const r = await api.post(API + '/auth/login', this.loginForm);
         if (r.data?.ok) {
           localStorage.setItem('token', r.data.token);
           localStorage.setItem('user', JSON.stringify(r.data.user));
@@ -555,7 +569,7 @@ const app = createApp({
           this.user = r.data.user;
           router.push('/entry');
         } else ElMessage.error(r.data?.msg || '登录失败');
-      } catch (e) { ElMessage.error(e.response?.data?.msg || '登录失败'); }
+      } catch (e) { ElMessage.error(e?.response?.data?.msg || e?.message || '登录失败'); }
       finally { this.loginForm.loading = false; }
     },
     logout() { localStorage.removeItem('token'); localStorage.removeItem('user'); this.token = null; this.user = null; location.reload(); }

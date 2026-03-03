@@ -6,7 +6,9 @@
 const fs = require('fs');
 const path = require('path');
 
-const API_URL = process.env.API_URL || process.env.VITE_API_URL || '';
+const API_URL = (process.env.API_URL || process.env.VITE_API_URL || '').replace(/\/$/, '');
+// 无 API_URL 时使用 localStorage 模式（纯前端，数据存浏览器）
+const API_BASE = API_URL || 'local';
 const ROOT = path.join(__dirname, '..');
 const PUBLIC = path.join(ROOT, 'public');
 
@@ -18,8 +20,8 @@ fs.mkdirSync(PUBLIC, { recursive: true });
 const staticDir = path.join(ROOT, 'static');
 fs.cpSync(staticDir, path.join(PUBLIC, 'static'), { recursive: true });
 
-// 生成 config.js（注入 API 地址）
-const configJs = `window.API_BASE = ${JSON.stringify(API_URL.replace(/\/$/, ''))};\n`;
+// 生成 config.js（API 地址；空则用 'local' 表示 localStorage 模式）
+const configJs = `window.API_BASE = ${JSON.stringify(API_BASE)};\n`;
 fs.writeFileSync(path.join(PUBLIC, 'config.js'), configJs);
 
 // 复制并处理 index.html
@@ -30,4 +32,4 @@ if (!html.includes('config.js')) {
 }
 fs.writeFileSync(path.join(PUBLIC, 'index.html'), html);
 
-console.log('Netlify build done. API_BASE =', API_URL || '(same origin)');
+console.log('Netlify build done. API_BASE =', API_BASE || '(same origin)');
